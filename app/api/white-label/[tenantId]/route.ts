@@ -1,18 +1,18 @@
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { tenantId: string } }
+  { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { tenantId } = await params
 
     // Fetch tenant configuration from database
     const { data: tenant, error } = await supabase
       .from('tenants')
       .select('*')
-      .eq('id', params.tenantId)
+      .eq('id', tenantId)
       .single();
 
     if (error || !tenant) {
@@ -49,10 +49,10 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { tenantId: string } }
+  { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { tenantId } = await params
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -68,7 +68,7 @@ export async function PUT(
     const { data: tenant, error: fetchError } = await supabase
       .from('tenants')
       .select('*')
-      .eq('id', params.tenantId)
+      .eq('id', tenantId)
       .single();
 
     if (fetchError || !tenant) {
@@ -93,7 +93,7 @@ export async function PUT(
         feature_email_sending: body.features?.emailSending,
         feature_analytics: body.features?.analytics,
       })
-      .eq('id', params.tenantId)
+      .eq('id', tenantId)
       .select()
       .single();
 

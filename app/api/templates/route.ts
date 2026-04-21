@@ -1,9 +1,8 @@
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -33,7 +32,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

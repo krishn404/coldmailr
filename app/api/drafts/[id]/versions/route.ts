@@ -1,12 +1,12 @@
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { id } = await params
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -20,7 +20,7 @@ export async function GET(
     const { data: draft } = await supabase
       .from('drafts')
       .select('id')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -34,7 +34,7 @@ export async function GET(
     const { data: versions, error } = await supabase
       .from('draft_versions')
       .select('*')
-      .eq('draft_id', params.id)
+      .eq('draft_id', id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -51,10 +51,10 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { id } = await params
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -70,7 +70,7 @@ export async function POST(
     const { data: version, error } = await supabase
       .from('draft_versions')
       .insert({
-        draft_id: params.id,
+        draft_id: id,
         subject,
         body: emailBody,
         context,

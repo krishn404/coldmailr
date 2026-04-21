@@ -1,0 +1,236 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Premium dark mode - Apple inspired */
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --card: #121212;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  
+  /* Primary accent - Blue for actions */
+  --primary: #4a90ff;
+  --primary-foreground: #ffffff;
+  
+  /* Secondary - Subtle gray for inactive elements */
+  --secondary: #2a2a2a;
+  --secondary-foreground: #e0e0e0;
+  
+  /* Muted - Very subtle gray */
+  --muted: #1f1f1f;
+  --muted-foreground: #808080;
+  
+  /* Accent - Same as primary for consistency */
+  --accent: #4a90ff;
+  --accent-foreground: #ffffff;
+  
+  /* Destructive - Red for delete/error actions */
+  --destructive: #ff3b30;
+  --destructive-foreground: #ffffff;
+  
+  /* Borders - Subtle gray lines */
+  --border: #1f1f1f;
+  --input: #1a1a1a;
+  --ring: #4a90ff;
+  
+  /* Chart colors */
+  --chart-1: #4a90ff;
+  --chart-2: #34c759;
+  --chart-3: #ff9500;
+  --chart-4: #ff3b30;
+  --chart-5: #5ac8fa;
+  
+  /* Sidebar */
+  --sidebar: #0f0f0f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #4a90ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1f1f1f;
+  --sidebar-ring: #4a90ff;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  html {
+    @apply bg-[#0a0a0a];
+    color-scheme: dark;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'ss01' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Premium typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-3xl;
+  }
+  
+  h2 {
+    @apply text-2xl;
+  }
+  
+  h3 {
+    @apply text-xl;
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-[#0a0a0a];
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-[#2a2a2a] rounded-full;
+    transition: background-color 0.2s ease;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-[#3a3a3a];
+  }
+}
+
+/* Premium surface effects */
+@layer components {
+  .surface-base {
+    @apply bg-[#121212] border border-[#1f1f1f] rounded-xl;
+  }
+  
+  .surface-elevated {
+    @apply bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  
+  .surface-glossy {
+    @apply bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] border border-[#2a2a2a] rounded-xl;
+    box-shadow: 0 1px 3px rgba(255, 255, 255, 0.1) inset, 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  
+  /* Input styling - glossy appearance */
+  .input-premium {
+    @apply bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg text-white placeholder-[#666] 
+           focus:border-[#4a90ff] focus:outline-none transition-all duration-200;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) inset;
+  }
+  
+  /* Button styling - glass morphism effect */
+  .btn-glass {
+    @apply bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white 
+           hover:bg-[#242424] active:bg-[#2a2a2a] transition-all duration-150;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Primary action button - glossy blue */
+  .btn-primary-glossy {
+    @apply bg-gradient-to-b from-[#5ba3ff] to-[#4a90ff] text-white rounded-lg font-semibold
+           hover:from-[#6baeff] hover:to-[#5a9fff] active:from-[#4a90ff] active:to-[#3a80ff] 
+           transition-all duration-150 shadow-lg;
+    box-shadow: 0 4px 12px rgba(74, 144, 255, 0.3), 0 1px 3px rgba(255, 255, 255, 0.2) inset;
+  }
+  
+  /* Badge styling */
+  .badge-premium {
+    @apply px-2.5 py-1 rounded-full text-xs font-medium bg-[#1a1a1a] border border-[#2a2a2a] text-[#a0a0a0];
+  }
+  
+  /* Divider - subtle */
+  .divider-subtle {
+    @apply border-t border-[#1a1a1a];
+  }
+}

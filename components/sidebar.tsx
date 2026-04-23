@@ -10,7 +10,7 @@ interface RecentDraft {
   to: string
   subject: string
   preview: string
-  updatedAt: Date
+  updatedLabel: string
 }
 
 interface Template {
@@ -28,14 +28,14 @@ export function Sidebar() {
       to: 'john@acme.com',
       subject: 'Collaboration opportunity',
       preview: 'Hi John, I noticed your company is expanding...',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 30),
+      updatedLabel: '30m ago',
     },
     {
       id: '2',
       to: 'sarah@tech.io',
       subject: 'Product integration',
       preview: 'Hi Sarah, I came across your tool and...',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 120),
+      updatedLabel: '2h ago',
     },
   ])
 
@@ -137,7 +137,7 @@ export function Sidebar() {
                         {draft.preview}
                       </p>
                       <time className="text-xs text-[#696969] mt-2 block">
-                        {formatTime(draft.updatedAt)}
+                        {draft.updatedLabel}
                       </time>
                     </div>
                   </div>
@@ -192,22 +192,4 @@ export function Sidebar() {
       </div>
     </aside>
   )
-}
-
-function formatTime(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 60) {
-    return `${diffMins}m ago`
-  } else if (diffHours < 24) {
-    return `${diffHours}h ago`
-  } else if (diffDays < 7) {
-    return `${diffDays}d ago`
-  } else {
-    return date.toLocaleDateString()
-  }
 }

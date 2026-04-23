@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Maximize2, Minimize2, ChevronDown } from 'lucide-react'
+import { X, Maximize2, Minimize2, ChevronDown, Sparkles, Bold, Italic, Underline, Link2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { toast } from 'sonner'
 import { DeliverabilityScore } from '@/components/deliverability-score'
 import { ContactPreview } from '@/components/contact-preview'
 import { BroadcastRecord } from '@/components/broadcasts-types'
@@ -30,7 +32,6 @@ export function ColdEmailComposer({
 }: ColdEmailComposerProps) {
   const [recipient, setRecipient] = useState('')
   const [subject, setSubject] = useState('')
-  const [previewText, setPreviewText] = useState('')
   const [body, setBody] = useState('')
   const [signature, setSignature] = useState(fromEmail || '')
   const [selectedIdentity, setSelectedIdentity] = useState(fromEmail || '')
@@ -38,6 +39,7 @@ export function ColdEmailComposer({
   const [isMaximized, setIsMaximized] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isGeneratingSubject, setIsGeneratingSubject] = useState(false)
   const [mode, setMode] = useState<'cold' | 'freelance' | 'follow-up'>('cold')
   const [contextNotes, setContextNotes] = useState('')
   const [variations, setVariations] = useState(1)
@@ -66,7 +68,6 @@ export function ColdEmailComposer({
     setBroadcastId(null)
     setRecipient('')
     setSubject('')
-    setPreviewText('')
     setBody('')
     setContextNotes('')
     setMode('cold')
@@ -85,12 +86,12 @@ export function ColdEmailComposer({
 
   const handleSend = async () => {
     if (!canSend) {
-      alert('Connect Gmail first to send emails')
+      toast.error('Connect Gmail first to send emails')
       return
     }
 
     if (!recipient || !subject || !body) {
-      alert('Please fill in all required fields')
+      toast.error('Please fill in all required fields')
       return
     }
 
@@ -141,11 +142,11 @@ export function ColdEmailComposer({
         throw new Error(data.error || 'Failed to send email')
       }
 
-      alert('Email sent successfully')
+      toast.success('Email sent successfully')
       onSaved?.()
       onClose()
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to send email')
+      toast.error(error instanceof Error ? error.message : 'Failed to send email')
     } finally {
       setIsSending(false)
     }
@@ -167,7 +168,7 @@ export function ColdEmailComposer({
 
   const handleGenerateDraft = async () => {
     if (!recipient || !contextNotes.trim()) {
-      alert('Please fill recipient and Context / Notes first')
+      toast.error('Please fill recipient and Context / Notes first')
       return
     }
 
@@ -195,10 +196,76 @@ export function ColdEmailComposer({
       const text = await response.text()
       parseSubjectAndBody(text)
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to generate draft')
+      toast.error(error instanceof Error ? error.message : 'Failed to generate draft')
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const handleRegenerateSubject = async () => {
+    if (!recipient || !(contextNotes.trim() || body.trim())) {
+      toast.error('Add recipient and some context/message first')
+      return
+    }
+
+    setIsGeneratingSubject(true)
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipient,
+          mode,
+          context: contextNotes.trim() || body,
+          recipient_name: recipient.split('@')[0]?.split('.')[0] || '',
+          opportunity_type: mode === 'cold' ? 'career' : mode,
+          goal: 'reply',
+          variations: 1,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string }
+        throw new Error(data.error || 'Failed to generate subject')
+      }
+
+      const text = await response.text()
+      const firstLine = text.replace(/\r/g, '').split('\n')[0]?.trim() || ''
+      const generatedSubject = firstLine.toLowerCase().startsWith('subject:')
+        ? firstLine.replace(/^subject:\s*/i, '').trim()
+        : firstLine
+
+      if (generatedSubject) {
+        setSubject(generatedSubject)
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate subject')
+    } finally {
+      setIsGeneratingSubject(false)
+    }
+  }
+
+  const formatSelection = (formatter: (text: string) => string) => {
+    const textarea = bodyRef.current
+    if (!textarea) return
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selected = body.slice(start, end)
+    const fallback = selected || 'text'
+    const formatted = formatter(fallback)
+    const next = body.slice(0, start) + formatted + body.slice(end)
+    setBody(next)
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const cursor = start + formatted.length
+      textarea.setSelectionRange(cursor, cursor)
+    })
+  }
+
+  const insertLink = () => {
+    const url = window.prompt('Enter URL')
+    if (!url) return
+    formatSelection((text) => `[${text}](${url})`)
   }
 
   const handleSaveDraft = async () => {
@@ -218,24 +285,32 @@ export function ColdEmailComposer({
     })
 
     if (!response.ok) {
-      alert('Failed to save draft')
+      toast.error('Failed to save draft')
       return
     }
 
     const saved = (await response.json()) as BroadcastApiResponse
     if (!saved?.data?.id) {
-      alert('Failed to save draft')
+      toast.error('Failed to save draft')
       return
     }
     setBroadcastId(saved.data.id)
     onSaved?.()
-    alert('Draft saved')
+    toast.success('Draft saved')
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div
-        className={`bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-2xl flex flex-col transition-all ${
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/35 backdrop-blur-md flex items-center justify-center z-50"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.2 }}
+        className={`bg-[#141414]/85 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden transition-all ${
           isMaximized ? 'w-[90vw] h-[90vh]' : 'w-[800px] h-[600px]'
         }`}
       >
@@ -283,27 +358,25 @@ export function ColdEmailComposer({
             <label className="text-xs font-medium text-[#666666] uppercase tracking-wider block mb-2">
               Subject
             </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="RE: Your inquiry"
-              className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-white placeholder-[#666666] focus:border-[#3a3a3a] focus:outline-none transition-colors"
-            />
-          </div>
-
-          {/* Preview Text Field */}
-          <div>
-            <label className="text-xs font-medium text-[#666666] uppercase tracking-wider block mb-2">
-              Preview Text <span className="text-[#555555]">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={previewText}
-              onChange={(e) => setPreviewText(e.target.value)}
-              placeholder="Brief preview for email clients"
-              className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-white placeholder-[#666666] focus:border-[#3a3a3a] focus:outline-none transition-colors"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="RE: Your inquiry"
+                className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-white placeholder-[#666666] focus:border-[#3a3a3a] focus:outline-none transition-colors"
+              />
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleRegenerateSubject}
+                disabled={isGeneratingSubject}
+                className="inline-flex items-center gap-1 px-3 py-2.5 text-xs bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg text-[#cfcfcf] hover:bg-[#141414] disabled:opacity-50"
+                title="Regenerate subject with AI"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isGeneratingSubject ? 'animate-spin' : ''}`} />
+                {isGeneratingSubject ? 'Generating' : 'AI'}
+              </motion.button>
+            </div>
           </div>
 
           {/* Body */}
@@ -383,24 +456,48 @@ export function ColdEmailComposer({
               className="w-full h-48 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#666666] focus:border-[#3a3a3a] focus:outline-none transition-colors font-mono text-sm resize-none"
             />
 
-            {/* Advanced Formatting */}
-            {showAdvancedFormatting && (
-              <div className="mt-3 flex items-center gap-2 p-3 bg-[#0a0a0a] rounded-lg border border-[#2a2a2a]">
-                <button className="px-2 py-1 text-xs font-semibold text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors">
-                  B
-                </button>
-                <button className="px-2 py-1 text-xs italic text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors">
-                  I
-                </button>
-                <button className="px-2 py-1 text-xs underline text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors">
-                  U
-                </button>
-                <div className="flex-1" />
-                <button className="px-2 py-1 text-xs text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors">
-                  Link
-                </button>
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {/* Advanced Formatting */}
+              {showAdvancedFormatting && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: -4 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -4 }}
+                  transition={{ duration: 0.16 }}
+                  className="mt-3 flex items-center gap-2 p-3 bg-[#0a0a0a] rounded-lg border border-[#2a2a2a] overflow-hidden"
+                >
+                  <button
+                    onClick={() => formatSelection((text) => `**${text}**`)}
+                    className="px-2 py-1 text-xs text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors inline-flex items-center gap-1"
+                  >
+                    <Bold className="w-3.5 h-3.5" />
+                    Bold
+                  </button>
+                  <button
+                    onClick={() => formatSelection((text) => `*${text}*`)}
+                    className="px-2 py-1 text-xs text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors inline-flex items-center gap-1"
+                  >
+                    <Italic className="w-3.5 h-3.5" />
+                    Italic
+                  </button>
+                  <button
+                    onClick={() => formatSelection((text) => `<u>${text}</u>`)}
+                    className="px-2 py-1 text-xs text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors inline-flex items-center gap-1"
+                  >
+                    <Underline className="w-3.5 h-3.5" />
+                    Underline
+                  </button>
+                  <div className="flex-1" />
+                  <button
+                    onClick={insertLink}
+                    className="px-2 py-1 text-xs text-[#999999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors inline-flex items-center gap-1"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    Link
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Signature Section */}
@@ -434,7 +531,7 @@ export function ColdEmailComposer({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#2a2a2a] bg-[#0a0a0a]">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#2a2a2a] bg-[#0a0a0a] rounded-b-lg">
           <button
             onClick={handleSaveDraft}
             className="px-4 py-2 text-sm font-medium text-[#999999] bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#2a2a2a] transition-colors"
@@ -449,8 +546,8 @@ export function ColdEmailComposer({
             {isSending ? 'Sending...' : 'Send Now'}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

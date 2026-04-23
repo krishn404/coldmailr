@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import Groq from 'groq-sdk'
 
 export const runtime = 'nodejs'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
+const groqApiKey = process.env.GROQ_API_KEY
+if (!groqApiKey || groqApiKey.trim().length === 0) {
+  throw new Error('Missing GROQ_API_KEY: set a non-empty GROQ_API_KEY environment variable')
+}
+
+const BLOCKED_PATTERNS = [
+  '\\b(?:kill\\s+yourself|self-harm|suicide|harm\\s+myself)\\b',
+  '\\b(?:make\\s+a\\s+bomb|build\\s+a\\s+bomb|explosive\\s+device)\\b',
+  '\\b(?:credit\\s+card\\s+fraud|steal\\s+credentials|phishing\\s+kit)\\b',
+] as const
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: groqApiKey,
 })
 
 interface GenerateRequest {
@@ -39,8 +50,11 @@ const MODE_INSTRUCTIONS: Record<GenerateRequest['mode'], string> = {
   'follow-up': 'follow-up mode: 60-100 words, recap + value reminder + soft nudge CTA.',
 }
 
-function buildSystemPrompt(mode: GenerateRequest['mode']): string {
+function buildSystemPrompt(mode: GenerateRequest['mode'], forbiddenPhrases?: string): string {
   const limits = MODE_LIMITS[mode]
+  const forbiddenSection = forbiddenPhrases?.trim()
+    ? `Forbidden phrases (must not appear verbatim): ${forbiddenPhrases}`
+    : 'Forbidden phrases: none provided.'
   return `You write concise, high-conversion emails for career outreach, freelance pitches, and follow-ups.
 Use only the provided context. Do not invent facts.
 ${MODE_INSTRUCTIONS[mode]}
@@ -50,6 +64,7 @@ Include one concrete proof/example only if provided.
 End with a simple, low-friction CTA.
 Tone: natural, slightly informal, credible.
 Avoid buzzwords, generic AI phrasing, placeholders, emojis, and over-formatting.
+${forbiddenSection}
 Output plain text only.
 Line 1 must be "Subject: ...".
 Body must be 3-6 sentences and ${limits.min}-${limits.max} words.`
@@ -66,7 +81,6 @@ key_skills: ${req.key_skills || ''}
 value_prop: ${req.value_prop || ''}
 proof: ${req.proof || ''}
 constraints: ${req.constraints || ''}
-forbidden_phrases: ${req.forbidden_phrases || ''}
 goal: ${req.goal || 'reply'}
 recipient_email: ${req.to}
 
@@ -78,11 +92,35 @@ function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
 }
 
+function parseSubjectAndBody(output: string): { subjectLine: string; body: string } {
+  const lines = output.replace(/\r/g, '').split('\n')
+  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean)
+  if (nonEmptyLines.length === 0) {
+    throw new Error('Model returned empty output')
+  }
+
+  const firstRaw = lines[0]?.trim() ?? ''
+  if (firstRaw.toLowerCase().startsWith('subject:')) {
+    return {
+      subjectLine: firstRaw,
+      body: lines.slice(1).join('\n').trim(),
+    }
+  }
+
+  const firstNonEmpty = nonEmptyLines[0]
+  const firstNonEmptyIndex = lines.findIndex((line) => line.trim() === firstNonEmpty)
+  const remainingBody =
+    firstNonEmptyIndex >= 0 ? lines.slice(firstNonEmptyIndex + 1).join('\n').trim() : lines.slice(1).join('\n').trim()
+
+  return {
+    subjectLine: `Subject: ${firstNonEmpty}`,
+    body: remainingBody,
+  }
+}
+
 function enforceLengthRange(output: string, mode: GenerateRequest['mode']): string {
   const limits = MODE_LIMITS[mode]
-  const lines = output.replace(/\r/g, '').split('\n')
-  const subjectLine = lines[0]?.startsWith('Subject:') ? lines[0] : 'Subject: Quick note'
-  const body = lines.slice(1).join('\n').trim()
+  const { subjectLine, body } = parseSubjectAndBody(output)
   const words = wordCount(body)
 
   if (words <= limits.max) return `${subjectLine}\n${body}`
@@ -97,20 +135,40 @@ function enforceLengthRange(output: string, mode: GenerateRequest['mode']): stri
 
 async function generateDraft(req: GenerateRequest): Promise<string> {
   const completion = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: GROQ_MODEL,
     temperature: 0.7,
     top_p: 0.9,
     max_tokens: 220,
     frequency_penalty: 0.2,
     presence_penalty: 0.1,
     messages: [
-      { role: 'system', content: buildSystemPrompt(req.mode) },
+      { role: 'system', content: buildSystemPrompt(req.mode, req.forbidden_phrases) },
       { role: 'user', content: buildUserPrompt(req) },
     ],
   })
 
   const text = completion.choices?.[0]?.message?.content?.trim() || ''
-  return enforceLengthRange(text, req.mode)
+  const enforced = enforceLengthRange(text, req.mode)
+  const body = enforced.replace(/\r/g, '').split('\n').slice(1).join('\n').trim()
+  if (wordCount(body) < MODE_LIMITS[req.mode].min) {
+    throw new Error('Draft below minimum word count')
+  }
+  return enforced
+}
+
+function matchesPattern(pattern: string, value: string): boolean {
+  try {
+    return new RegExp(pattern, 'i').test(value)
+  } catch (error) {
+    console.warn('[generate moderation invalid pattern]', { pattern, error })
+    return false
+  }
+}
+
+function getPolicyViolationMessage(input: string): string | null {
+  const matched = BLOCKED_PATTERNS.find((pattern) => matchesPattern(pattern, input))
+  if (!matched) return null
+  return 'Content violates policy. Please remove harmful or unsafe instructions and try again.'
 }
 
 function toTextResponse(text: string) {
@@ -131,12 +189,15 @@ function toTextResponse(text: string) {
 }
 
 function modeFromOpportunityType(value?: GenerateRequest['opportunity_type']): GenerateRequest['mode'] {
+  // "career" is mapped to "cold" because career outreach uses the same generation constraints.
+  if (value === 'career') return 'cold'
   if (value === 'follow-up') return 'follow-up'
   if (value === 'freelance') return 'freelance'
   return 'cold'
 }
 
 export async function POST(request: NextRequest) {
+  let modeForLog: GenerateRequest['mode'] | 'unknown' = 'unknown'
   try {
     const body = (await request.json()) as GenerateRequest
     if (!body.to || !body.context) {
@@ -148,6 +209,29 @@ export async function POST(request: NextRequest) {
       mode: body.mode || modeFromOpportunityType(body.opportunity_type),
       variations: Math.min(Math.max(body.variations ?? 1, 1), 3),
     }
+    modeForLog = normalized.mode
+
+    const moderationInput = [
+      normalized.to,
+      normalized.context,
+      normalized.recipient_name ?? '',
+      normalized.role ?? '',
+      normalized.company ?? '',
+      normalized.prior_context ?? '',
+      normalized.portfolio_links ?? '',
+      normalized.key_skills ?? '',
+      normalized.value_prop ?? '',
+      normalized.proof ?? '',
+      normalized.constraints ?? '',
+      normalized.forbidden_phrases ?? '',
+    ].join('\n')
+    const policyMessage = getPolicyViolationMessage(moderationInput)
+    if (policyMessage) {
+      return NextResponse.json(
+        { error: policyMessage, code: 'CONTENT_POLICY_VIOLATION' },
+        { status: 422 },
+      )
+    }
 
     const drafts = await Promise.all(
       Array.from({ length: normalized.variations! }, () => generateDraft(normalized)),
@@ -156,11 +240,13 @@ export async function POST(request: NextRequest) {
     const finalText =
       drafts.length === 1
         ? drafts[0]
-        : drafts.map((draft, index) => `Variation ${index + 1}\n${draft}`).join('\n\n')
+        : drafts
+            .map((draft, index) => `--- Variation ${index + 1} of ${drafts.length} ---\n${draft}`)
+            .join('\n\n')
 
     return toTextResponse(finalText)
   } catch (error) {
-    console.error('[API] Generation error:', error)
+    console.error({ route: '/api/generate', mode: modeForLog, error })
     return NextResponse.json({ error: 'Failed to generate email' }, { status: 500 })
   }
 }

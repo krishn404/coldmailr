@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { getAuthorizedClient, getSessionCookie } from '@/lib/gmail-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { ensureBroadcastsSchema } from '@/lib/ensure-broadcasts-schema'
 import { fromDbStatus, toDbStatus } from '@/lib/broadcast-status'
 
 type SendBody = {
@@ -192,7 +191,6 @@ export async function POST(request: Request) {
 
     // Recovery fallback: queue retry metadata for async repair.
     try {
-      await ensureBroadcastsSchema()
       await supabaseAdmin.from('broadcast_send_recovery_jobs').insert({
         broadcast_id: payload.broadcastId,
         message_id: messageId || payload.idempotencyKey,

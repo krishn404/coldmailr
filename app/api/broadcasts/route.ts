@@ -2,7 +2,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { ensureBroadcastsSchema } from '@/lib/ensure-broadcasts-schema'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,11 +11,6 @@ const supabase = createClient(
 // GET: list broadcasts with filters
 export async function GET(req: NextRequest) {
   try {
-    try {
-      await ensureBroadcastsSchema()
-    } catch (schemaError) {
-      console.warn('[broadcasts schema ensure skipped]', schemaError)
-    }
     const { searchParams } = new URL(req.url)
 
     const search = searchParams.get('search') || ''
@@ -54,11 +48,6 @@ export async function GET(req: NextRequest) {
 // POST: create new broadcast
 export async function POST(req: NextRequest) {
   try {
-    try {
-      await ensureBroadcastsSchema()
-    } catch (schemaError) {
-      console.warn('[broadcasts schema ensure skipped]', schemaError)
-    }
     const body = await req.json()
 
     const {

@@ -15,7 +15,7 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [audienceFilter, setAudienceFilter] = useState('all')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedBroadcast, setSelectedBroadcast] = useState<BroadcastRecord | null>(null)
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
@@ -37,7 +37,6 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
       content: b?.content ?? b?.body ?? '',
       body: b?.content ?? b?.body ?? '',
       toEmail: b?.to_email ?? '',
-      audience: b?.audience ?? '',
       context: b?.context ?? '',
       fromEmail: b?.from_email ?? '',
     }))
@@ -70,15 +69,9 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
         ? (item.subject || '').toLowerCase().includes(searchTerm.toLowerCase())
         : true
       const matchesStatus = statusFilter === 'all' ? true : item.status === statusFilter
-      const matchesAudience = audienceFilter === 'all' ? true : item.audience === audienceFilter
-      return matchesSearch && matchesStatus && matchesAudience
+      return matchesSearch && matchesStatus
     })
-  }, [broadcasts, searchTerm, statusFilter, audienceFilter])
-
-  const audienceOptions = useMemo(() => {
-    const values = Array.from(new Set(filteredBroadcasts.map((item) => item.audience))).filter(Boolean)
-    return ['all', ...values]
-  }, [filteredBroadcasts])
+  }, [broadcasts, searchTerm, statusFilter])
 
   const handleCreateEmail = async () => {
     try {
@@ -184,9 +177,50 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
     const response = await fetch(`/api/broadcasts/${broadcast.id}`, { method: 'DELETE' })
     if (!response.ok) return
     setBroadcasts((prev) => prev.filter((item) => item.id !== broadcast.id))
+    setSelectedIds((prev) => prev.filter((id) => id !== broadcast.id))
     if (selectedBroadcast?.id === broadcast.id) {
       setSelectedBroadcast(null)
     }
+  }
+
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (!checked) {
+      setSelectedIds([])
+      return
+    }
+    setSelectedIds(filteredBroadcasts.map((item) => item.id))
+  }
+
+  const handleToggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      if (checked) {
+        if (prev.includes(id)) return prev
+        return [...prev, id]
+      }
+      return prev.filter((current) => current !== id)
+    })
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    const selectedSet = new Set(selectedIds)
+    const items = broadcasts.filter((item) => selectedSet.has(item.id))
+    await Promise.all(items.map((item) => fetch(`/api/broadcasts/${item.id}`, { method: 'DELETE' })))
+    setBroadcasts((prev) => prev.filter((item) => !selectedSet.has(item.id)))
+    if (selectedBroadcast && selectedSet.has(selectedBroadcast.id)) {
+      setSelectedBroadcast(null)
+    }
+    setSelectedIds([])
+  }
+
+  const handleBulkStatusUpdate = async (status: BroadcastStatus) => {
+    if (selectedIds.length === 0) return
+    const selectedSet = new Set(selectedIds)
+    const items = broadcasts.filter((item) => selectedSet.has(item.id))
+    for (const item of items) {
+      await handleUpdateStatus(item, status)
+    }
+    setSelectedIds([])
   }
 
   useEffect(() => {
@@ -195,18 +229,48 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
     if (fresh) setSelectedBroadcast(fresh)
   }, [filteredBroadcasts, selectedBroadcast])
 
+  useEffect(() => {
+    const visibleIds = new Set(filteredBroadcasts.map((item) => item.id))
+    setSelectedIds((prev) => prev.filter((id) => visibleIds.has(id)))
+  }, [filteredBroadcasts])
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0a0a0a]">
       {/* Header */}
       <div className="px-8 py-8 border-b border-[#2a2a2a]">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-semibold text-white">Sent Emails</h1>
-          <button
-            onClick={handleCreateEmail}
-            className="px-4 py-2 bg-white text-black text-sm font-medium rounded hover:bg-[#f0f0f0] transition-colors"
-          >
-            + Create email
-          </button>
+          <div className="flex items-center gap-2">
+            {selectedIds.length > 0 && (
+              <>
+                <span className="text-xs text-[#999999]">{selectedIds.length} selected</span>
+                <button
+                  onClick={() => void handleBulkStatusUpdate('draft')}
+                  className="px-3 py-2 text-xs border border-[#2a2a2a] text-[#cfcfcf] rounded hover:bg-[#1a1a1a]"
+                >
+                  Mark Draft
+                </button>
+                <button
+                  onClick={() => void handleBulkStatusUpdate('sent')}
+                  className="px-3 py-2 text-xs border border-[#2a2a2a] text-[#cfcfcf] rounded hover:bg-[#1a1a1a]"
+                >
+                  Mark Sent
+                </button>
+                <button
+                  onClick={() => void handleBulkDelete()}
+                  className="px-3 py-2 text-xs border border-[#3a1f1f] text-red-300 rounded hover:bg-[#1a1a1a]"
+                >
+                  Delete Selected
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleCreateEmail}
+              className="px-4 py-2 bg-white text-black text-sm font-medium rounded hover:bg-[#f0f0f0] transition-colors"
+            >
+              + Create email
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -237,20 +301,6 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
             <ChevronDown className="w-4 h-4 text-[#666666] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div className="relative">
-            <select
-              value={audienceFilter}
-              onChange={(e) => setAudienceFilter(e.target.value)}
-              className="appearance-none px-4 py-2 pr-8 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-sm text-white hover:bg-[#2a2a2a] transition-colors"
-            >
-              {audienceOptions.map((value) => (
-                <option key={value} value={value}>
-                  {value === 'all' ? 'All Audiences' : value}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-[#666666] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
         </div>
       </div>
 
@@ -259,6 +309,9 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
       ) : (
         <BroadcastsTable
           broadcasts={filteredBroadcasts}
+          selectedIds={selectedIds}
+          onToggleSelectAll={handleToggleSelectAll}
+          onToggleSelectOne={handleToggleSelectOne}
           onView={setSelectedBroadcast}
           onEdit={onCreateClick}
           onDuplicate={handleDuplicate}
@@ -281,10 +334,6 @@ export function BroadcastsDashboard({ onCreateClick }: BroadcastsDashboardProps)
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-[#666666]">Audience</div>
-                <div className="text-white">{selectedBroadcast.audience || '—'}</div>
-              </div>
               <div>
                 <div className="text-[#666666]">Recipient</div>
                 <div className="text-white">{selectedBroadcast.toEmail || '—'}</div>

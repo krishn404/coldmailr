@@ -11,7 +11,6 @@ export type BroadcastRecord = {
   content?: string
   body: string
   toEmail: string
-  audience: string
   context: string
   fromEmail?: string
 }

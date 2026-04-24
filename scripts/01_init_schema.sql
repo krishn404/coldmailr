@@ -75,6 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_drafts_status ON drafts(status);
 -- ==========================================
 CREATE TABLE IF NOT EXISTS broadcasts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
   from_email VARCHAR(255),
   to_email VARCHAR(255) NOT NULL DEFAULT '',
   subject TEXT,
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS broadcasts (
 );
 
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS message_id TEXT;
+ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS subject TEXT;
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS content TEXT;
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS context TEXT;
@@ -117,6 +119,8 @@ CHECK (status IN ('draft','scheduled','sending','sent','failed'));
 -- indexes
 CREATE INDEX IF NOT EXISTS idx_broadcasts_status ON broadcasts(status);
 CREATE INDEX IF NOT EXISTS idx_broadcasts_created_at ON broadcasts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_user_id ON broadcasts(user_id);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_user_id_created_at ON broadcasts(user_id, created_at DESC);
 
 -- ==========================================
 -- AUTO updated_at (ALL TABLES)
@@ -168,6 +172,9 @@ UPDATE broadcasts
 SET sent_at = created_at
 WHERE status = 'sent' AND sent_at IS NULL;
 
+DELETE FROM broadcasts WHERE user_id IS NULL OR user_id = '';
+ALTER TABLE broadcasts ALTER COLUMN user_id SET NOT NULL;
+
 -- ==========================================
 -- RLS (UNCHANGED BUT ENABLED)
 -- ==========================================
@@ -179,16 +186,75 @@ ALTER TABLE broadcasts ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'broadcasts'
       AND policyname = 'broadcasts_select_all'
   ) THEN
-    CREATE POLICY broadcasts_select_all ON broadcasts
+    DROP POLICY broadcasts_select_all ON broadcasts;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'broadcasts'
+      AND policyname = 'broadcasts_user_select'
+  ) THEN
+    CREATE POLICY broadcasts_user_select ON broadcasts
       FOR SELECT
-      USING (true);
+      USING (auth.uid()::text = user_id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'broadcasts'
+      AND policyname = 'broadcasts_user_insert'
+  ) THEN
+    CREATE POLICY broadcasts_user_insert ON broadcasts
+      FOR INSERT
+      WITH CHECK (auth.uid()::text = user_id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'broadcasts'
+      AND policyname = 'broadcasts_user_update'
+  ) THEN
+    CREATE POLICY broadcasts_user_update ON broadcasts
+      FOR UPDATE
+      USING (auth.uid()::text = user_id)
+      WITH CHECK (auth.uid()::text = user_id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'broadcasts'
+      AND policyname = 'broadcasts_user_delete'
+  ) THEN
+    CREATE POLICY broadcasts_user_delete ON broadcasts
+      FOR DELETE
+      USING (auth.uid()::text = user_id);
   END IF;
 END $$;
 

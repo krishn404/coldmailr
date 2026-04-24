@@ -12,6 +12,7 @@ type GmailSession = {
   connected: boolean
   email?: string | null
   name?: string | null
+  userId?: string | null
 }
 
 export default function AppPage() {
@@ -22,6 +23,7 @@ export default function AppPage() {
   const [gmailSession, setGmailSession] = useState<GmailSession>({ connected: false })
   const [sessionLoading, setSessionLoading] = useState(true)
   const [broadcastsVersion, setBroadcastsVersion] = useState(0)
+  const [activeUserId, setActiveUserId] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -33,6 +35,7 @@ export default function AppPage() {
       if (response.ok) {
         const session = (await response.json()) as GmailSession
         setGmailSession(session)
+        setActiveUserId(session.userId ?? null)
       }
       setSessionLoading(false)
     }
@@ -49,7 +52,20 @@ export default function AppPage() {
   const logoutGmail = async () => {
     await fetch('/api/google/logout', { method: 'POST' })
     setGmailSession({ connected: false })
+    setActiveUserId(null)
+    setSelectedBroadcast(null)
+    setBroadcastsVersion((prev) => prev + 1)
   }
+
+  useEffect(() => {
+    if (!gmailSession.connected) return
+    const currentUserId = gmailSession.userId ?? null
+    if (activeUserId !== currentUserId) {
+      setActiveUserId(currentUserId)
+      setSelectedBroadcast(null)
+      setBroadcastsVersion((prev) => prev + 1)
+    }
+  }, [gmailSession.connected, gmailSession.userId, activeUserId])
 
   if (!mounted) {
     return <div className="h-screen bg-[#0a0a0a]" />
@@ -74,7 +90,7 @@ export default function AppPage() {
               setSelectedBroadcast(broadcast ?? null)
               setIsComposeOpen(true)
             }}
-            key={broadcastsVersion}
+            key={`${activeUserId ?? 'anon'}-${broadcastsVersion}`}
           />
         )}
       </main>

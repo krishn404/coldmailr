@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireApiAuth } from '@/lib/api-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,6 +12,10 @@ const supabase = createClient(
 // GET: list broadcasts with filters
 export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const { userId } = authResult.auth
+
     const { searchParams } = new URL(req.url)
 
     const search = searchParams.get('search') || ''
@@ -21,6 +26,7 @@ export async function GET(req: NextRequest) {
       .select(
         'id, subject, status, content, context, message_id, audience_count, sent_count, failed_count, created_at, updated_at, sent_at, to_email, from_email, body',
       )
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (status !== 'all') {
@@ -48,6 +54,10 @@ export async function GET(req: NextRequest) {
 // POST: create new broadcast
 export async function POST(req: NextRequest) {
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const { userId } = authResult.auth
+
     const body = await req.json()
 
     const {
@@ -69,6 +79,7 @@ export async function POST(req: NextRequest) {
       .from('broadcasts')
       .insert([
         {
+          user_id: userId,
           from_email: from_email ?? fromEmail ?? '',
           to_email: to_email ?? toEmail ?? '',
           subject,

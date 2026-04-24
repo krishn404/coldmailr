@@ -1,12 +1,14 @@
 import { cookies } from 'next/headers'
 import { google } from 'googleapis'
 
-type GmailSession = {
+export type GmailSession = {
   accessToken: string
   refreshToken?: string
   expiryDate?: number
   email?: string
   name?: string
+  googleSub?: string
+  userId?: string
 }
 
 const GMAIL_SESSION_COOKIE = 'gmail_oauth_session'
@@ -19,6 +21,10 @@ const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
 ]
+
+export function deriveUserIdFromGoogleSub(googleSub: string): string {
+  return googleSub
+}
 
 function getOAuthConfig(redirectUri: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID
@@ -79,7 +85,11 @@ export async function getSessionCookie(): Promise<GmailSession | null> {
   if (!raw) return null
 
   try {
-    return JSON.parse(raw) as GmailSession
+    const parsed = JSON.parse(raw) as GmailSession
+    if (parsed.googleSub && !parsed.userId) {
+      parsed.userId = deriveUserIdFromGoogleSub(parsed.googleSub)
+    }
+    return parsed
   } catch {
     return null
   }

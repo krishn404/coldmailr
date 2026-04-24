@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import {
   clearStateCookie,
   createGoogleOAuthClient,
+  deriveUserIdFromGoogleSub,
   getStateCookie,
   setSessionCookie,
 } from '@/lib/gmail-auth'
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
 
     const oauth2 = google.oauth2({ version: 'v2', auth: client })
     const profile = await oauth2.userinfo.get()
+    const googleSub = profile.data.id ?? undefined
+    const userId = googleSub ? deriveUserIdFromGoogleSub(googleSub) : undefined
 
     await setSessionCookie({
       accessToken: tokens.access_token ?? '',
@@ -32,6 +35,8 @@ export async function GET(request: Request) {
       expiryDate: tokens.expiry_date ?? undefined,
       email: profile.data.email ?? undefined,
       name: profile.data.name ?? undefined,
+      googleSub,
+      userId,
     })
     await clearStateCookie()
 

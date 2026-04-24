@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import { getAuthorizedClient, getSessionCookie } from '@/lib/gmail-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { fromDbStatus, toDbStatus } from '@/lib/broadcast-status'
+import { requireApiAuth } from '@/lib/api-auth'
 
 type SendBody = {
   to: string
@@ -16,12 +17,14 @@ type SendBody = {
 
 async function updateBroadcastWithMessageIdFallback(
   broadcastId: string,
+  userId: string,
   values: Record<string, unknown>,
 ) {
   const primary = await supabaseAdmin
     .from('broadcasts')
     .update(values)
     .eq('id', broadcastId)
+    .eq('user_id', userId)
     .neq('status', 'sent')
     .select('id, status, updated_at, sent_at, message_id')
     .single()
@@ -36,6 +39,7 @@ async function updateBroadcastWithMessageIdFallback(
     .from('broadcasts')
     .update(fallbackValues)
     .eq('id', broadcastId)
+    .eq('user_id', userId)
     .neq('status', 'sent')
     .select('id, status, updated_at, sent_at')
     .single()
@@ -54,6 +58,10 @@ export async function POST(request: Request) {
   const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? `${url.origin}/api/google/callback`
 
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const { userId } = authResult.auth
+
     const payload = (await request.json()) as SendBody
     if (!payload.to || !payload.subject || !payload.body) {
       return NextResponse.json({ error: 'Missing to, subject, or body' }, { status: 400 })
@@ -69,6 +77,7 @@ export async function POST(request: Request) {
         .from('broadcast_send_recovery_jobs')
         .select('id, status, message_id')
         .eq('broadcast_id', payload.broadcastId)
+        .eq('user_id', userId)
         .eq('message_id', payload.idempotencyKey)
         .maybeSingle()
       if (recovery.data) {
@@ -88,6 +97,7 @@ export async function POST(request: Request) {
       .from('broadcasts')
       .select('id, status, message_id, sent_at')
       .eq('id', payload.broadcastId)
+      .eq('user_id', userId)
       .single()
 
     if (lookup.error) {
@@ -131,6 +141,7 @@ export async function POST(request: Request) {
         updated_at: nowIso,
       })
       .eq('id', payload.broadcastId)
+      .eq('user_id', userId)
 
     const rawMessage = [
       `From: ${session.email}`,
@@ -172,7 +183,7 @@ export async function POST(request: Request) {
       if (messageId || payload.idempotencyKey) {
         values.message_id = messageId || payload.idempotencyKey
       }
-      const update = await updateBroadcastWithMessageIdFallback(payload.broadcastId, values)
+      const update = await updateBroadcastWithMessageIdFallback(payload.broadcastId, userId, values)
 
       if (!update.error) {
         persisted = true
@@ -193,6 +204,7 @@ export async function POST(request: Request) {
     try {
       await supabaseAdmin.from('broadcast_send_recovery_jobs').insert({
         broadcast_id: payload.broadcastId,
+        user_id: userId,
         message_id: messageId || payload.idempotencyKey,
         sent_at: sentAt,
         payload: payload,
@@ -226,6 +238,11 @@ export async function POST(request: Request) {
     try {
       const payload = (await request.clone().json()) as SendBody
       if (payload?.broadcastId) {
+        const authResult = await requireApiAuth()
+        if (!authResult.ok) {
+          throw new Error('Unauthorized while setting failure status')
+        }
+        const { userId } = authResult.auth
         await supabaseAdmin
           .from('broadcasts')
           .update({
@@ -238,6 +255,7 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString(),
           })
           .eq('id', payload.broadcastId)
+          .eq('user_id', userId)
       }
     } catch {
       // best-effort status fallback

@@ -134,26 +134,45 @@ function enforceLengthRange(output: string, mode: GenerateRequest['mode']): stri
 }
 
 async function generateDraft(req: GenerateRequest): Promise<string> {
-  const completion = await groq.chat.completions.create({
-    model: GROQ_MODEL,
-    temperature: 0.7,
-    top_p: 0.9,
-    max_tokens: 220,
-    frequency_penalty: 0.2,
-    presence_penalty: 0.1,
-    messages: [
-      { role: 'system', content: buildSystemPrompt(req.mode, req.forbidden_phrases) },
-      { role: 'user', content: buildUserPrompt(req) },
-    ],
-  })
+  const minWords = MODE_LIMITS[req.mode].min
+  let bestDraft = ''
+  let bestWordCount = 0
 
-  const text = completion.choices?.[0]?.message?.content?.trim() || ''
-  const enforced = enforceLengthRange(text, req.mode)
-  const body = enforced.replace(/\r/g, '').split('\n').slice(1).join('\n').trim()
-  if (wordCount(body) < MODE_LIMITS[req.mode].min) {
-    throw new Error('Draft below minimum word count')
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      temperature: attempt === 0 ? 0.7 : 0.6,
+      top_p: 0.9,
+      max_tokens: attempt === 0 ? 220 : 260,
+      frequency_penalty: 0.2,
+      presence_penalty: 0.1,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(req.mode, req.forbidden_phrases) },
+        { role: 'user', content: buildUserPrompt(req) },
+      ],
+    })
+
+    const text = completion.choices?.[0]?.message?.content?.trim() || ''
+    const enforced = enforceLengthRange(text, req.mode)
+    const body = enforced.replace(/\r/g, '').split('\n').slice(1).join('\n').trim()
+    const words = wordCount(body)
+
+    if (words > bestWordCount) {
+      bestDraft = enforced
+      bestWordCount = words
+    }
+
+    if (words >= minWords) {
+      return enforced
+    }
   }
-  return enforced
+
+  console.warn('[generate short draft fallback]', {
+    mode: req.mode,
+    minWords,
+    bestWordCount,
+  })
+  return bestDraft
 }
 
 function matchesPattern(pattern: string, value: string): boolean {

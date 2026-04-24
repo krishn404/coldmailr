@@ -11,5 +11,6 @@ export async function GET() {
     connected: true,
     email: session.email ?? null,
     name: session.name ?? null,
+    userId: session.userId ?? null,
   })
 }

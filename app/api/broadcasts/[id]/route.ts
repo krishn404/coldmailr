@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireApiAuth } from '@/lib/api-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const { userId } = authResult.auth
+
     const { id } = await params
     const { data, error } = await supabase
       .from('broadcasts')
@@ -35,6 +40,7 @@ export async function GET(
         message_id
       `)
       .eq('id', id)
+      .eq('user_id', userId)
       .single()
 
     if (error) {
@@ -55,6 +61,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const { userId } = authResult.auth
+
     const { id } = await params
     const body = await req.json()
 
@@ -74,6 +84,7 @@ export async function PUT(
       .from('broadcasts')
       .select('id, status')
       .eq('id', id)
+      .eq('user_id', userId)
       .single()
 
     if (fetchError || !existing) {
@@ -109,6 +120,7 @@ export async function PUT(
       .from('broadcasts')
       .update(updates)
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single()
 
@@ -120,6 +132,7 @@ export async function PUT(
         .from('broadcasts')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', userId)
         .select()
         .single()
 
@@ -149,11 +162,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const { userId } = authResult.auth
+
     const { id } = await params
     const { error } = await supabase
       .from('broadcasts')
       .delete()
       .eq('id', id)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('[API] broadcasts DELETE error:', error)

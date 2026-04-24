@@ -7,7 +7,8 @@ import './globals.css'
 const syne = Syne({ subsets: ['latin'], weight: ['700', '800'], variable: '--font-syne' })
 const dmSans = DM_Sans({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-dm-sans' })
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-jetbrains-mono' })
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'http://localhost:3000'
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coldmailr.xyz'
 const metadataBase = new URL(siteUrl)
 
 export const metadata: Metadata = {
@@ -26,22 +27,22 @@ export const metadata: Metadata = {
     'sales outreach',
     'freelance outreach',
   ],
-  generator: '',
   alternates: {
-    canonical: '/',
+    canonical: siteUrl,
   },
   openGraph: {
     type: 'website',
-    url: '/',
+    url: siteUrl,
     title: 'Coldmailr | AI Cold Email Workspace',
     description: 'Draft, optimize, send, and manage cold emails with AI and Gmail integration.',
     siteName: 'Coldmailr',
     images: [
       {
-        url: '/logo.png',
-        width: 1024,
-        height: 1024,
-        alt: 'Coldmailr logo',
+        url: `${siteUrl}/og-image.jpg`,
+        width: 1200,
+        height: 630,
+        alt: 'Coldmailr',
+        type: 'image/jpg',
       },
     ],
   },
@@ -49,7 +50,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Coldmailr | AI Cold Email Workspace',
     description: 'Draft, optimize, send, and manage cold emails with AI and Gmail integration.',
-    images: ['/logo.png'],
+    images: [`${siteUrl}/og-image.jpg`],
   },
   robots: {
     index: true,
@@ -65,9 +66,7 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
   icons: {
     icon: [
-      {
-        url: '/favicon.ico',
-      },
+      { url: '/favicon.ico' },
       {
         url: '/icons/manifest-icon-192.maskable.png',
         sizes: '192x192',
@@ -93,9 +92,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="en" className="bg-[#0F0F0F] dark">
       <body className={`${syne.variable} ${dmSans.variable} ${jetbrainsMono.variable} font-sans antialiased bg-[#0F0F0F] text-white`}>

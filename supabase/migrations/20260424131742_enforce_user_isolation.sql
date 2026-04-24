@@ -1,0 +1,3 @@
+-- no-op migration
+-- This file was auto-created during CLI migration generation and intentionally left empty.
+-- Kept to preserve migration history consistency between local and remote.

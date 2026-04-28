@@ -19,7 +19,6 @@ type ProfileContextValue = {
   error: string | null
   mutateProfile: (input: ProfileUpsertInput) => Promise<ProfileRecord>
   deleteProfile: () => Promise<void>
-  uploadAvatar: (file: File) => Promise<ProfileRecord>
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null)
@@ -56,7 +55,7 @@ export function ProfileProvider({
           ? {
               ...data.profile,
               full_name: input.full_name,
-              avatar_url: input.avatar_url?.trim() || null,
+              avatar_url: null,
               role: input.role?.trim() || null,
               company: input.company?.trim() || null,
               intents: input.intents,
@@ -95,18 +94,6 @@ export function ProfileProvider({
           if (!response.ok) throw new Error(payload?.error || 'Failed to delete profile')
         })
         await mutate({ profile: null as unknown as ProfileRecord }, { revalidate: false })
-      },
-      uploadAvatar: async (file) => {
-        const formData = new FormData()
-        formData.append('file', file)
-        const response = await fetch('/api/profile/avatar', {
-          method: 'POST',
-          body: formData,
-        })
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload?.error || 'Failed to upload avatar')
-        await mutate({ profile: payload.profile }, { revalidate: false })
-        return payload.profile as ProfileRecord
       },
     }
   }, [session, data, error, isLoading, mutate])

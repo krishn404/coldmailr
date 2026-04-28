@@ -5,10 +5,18 @@ import { createClient } from '@supabase/supabase-js'
 import { requireApiAuth } from '@/lib/api-auth'
 import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Initialize Supabase client safely - only throw at runtime if accessed without config
+const getSupabase = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    console.error('[broadcasts] Missing Supabase configuration')
+    return null
+  }
+
+  return createClient(url, key)
+}
 
 // GET: list broadcasts with filters
 export async function GET(req: NextRequest) {
@@ -18,6 +26,11 @@ export async function GET(req: NextRequest) {
     const { userId } = authResult.auth
     const onboarding = await requireOnboardingComplete(authResult.auth)
     if (!onboarding.ok) return onboarding.response
+
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
 
     const { searchParams } = new URL(req.url)
 
@@ -62,6 +75,11 @@ export async function POST(req: NextRequest) {
     const { userId } = authResult.auth
     const onboarding = await requireOnboardingComplete(authResult.auth)
     if (!onboarding.ok) return onboarding.response
+
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
 
     const body = await req.json()
 

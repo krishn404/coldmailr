@@ -142,12 +142,12 @@ export function BlockBasedComposer({
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Email Composer</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Strategy-driven block-based email creation</p>
+            <h2 className="text-lg font-bold text-slate-900">Email Composer</h2>
+            <p className="text-xs text-slate-500 mt-0.5 tracking-wide uppercase font-medium">Strategy-driven block-based creation</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 active:bg-slate-200 rounded-lg transition-colors">
             <X size={20} className="text-slate-600" />
           </button>
         </div>
@@ -155,7 +155,7 @@ export function BlockBasedComposer({
         {/* Main Content */}
         <div className="flex-1 overflow-hidden flex">
           {/* Left Panel */}
-          <div className="flex-1 overflow-y-auto p-6 border-r border-slate-200 bg-white space-y-6">
+          <div className="flex-1 overflow-y-auto p-5 border-r border-slate-200 bg-white space-y-4">
             {/* Intent Selector */}
             <div>
               <IntentSelector
@@ -167,7 +167,7 @@ export function BlockBasedComposer({
 
             {/* Strategy Selector */}
             {composer.state.strategies.length > 0 && (
-              <div className="border-t border-slate-200 pt-6">
+              <div className="border-t border-slate-200 pt-4">
                 <StrategySelector
                   strategies={composer.state.strategies}
                   selectedId={composer.state.selectedStrategy?.id || null}
@@ -179,7 +179,7 @@ export function BlockBasedComposer({
 
             {/* Subject Field */}
             {composer.state.blocks.length > 0 && (
-              <div className="border-t border-slate-200 pt-6">
+              <div className="border-t border-slate-200 pt-4">
                 <AISubjectField
                   value={subject}
                   onChange={setSubject}
@@ -191,8 +191,8 @@ export function BlockBasedComposer({
 
             {/* Block Editor */}
             {composer.state.blocks.length > 0 && (
-              <div className="border-t border-slate-200 pt-6">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">Email Content</h3>
+              <div className="border-t border-slate-200 pt-4">
+                <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">Email Content</h3>
                 <BlockEditor
                   blocks={composer.state.blocks}
                   onBlockUpdate={composer.updateBlock}
@@ -206,17 +206,17 @@ export function BlockBasedComposer({
 
             {/* Empty State */}
             {composer.state.blocks.length === 0 && composer.state.selectedStrategy && (
-              <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <AlertCircle size={18} className="text-amber-600 flex-shrink-0" />
-                <p className="text-sm text-amber-900">
-                  Select a strategy above to generate email blocks
+              <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertCircle size={16} className="text-amber-600 flex-shrink-0" />
+                <p className="text-xs text-amber-900 font-medium">
+                  Select a strategy to generate email blocks
                 </p>
               </div>
             )}
           </div>
 
           {/* Right Panel */}
-          <div className="w-80 bg-slate-50 border-l border-slate-200 overflow-y-auto p-6 space-y-6">
+          <div className="w-72 bg-slate-50 border-l border-slate-200 overflow-y-auto p-5 space-y-4">
             {/* Context Panel */}
             <ContextPanel
               context={composer.state.context}
@@ -225,21 +225,21 @@ export function BlockBasedComposer({
             />
 
             {/* Stats */}
-            <div className="border-t border-slate-200 pt-6">
-              <div className="space-y-2">
+            <div className="border-t border-slate-200 pt-4">
+              <div className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Email Length</span>
-                  <span className="text-sm font-medium text-slate-900">
-                    {composer.state.blocks.reduce((sum, b) => sum + b.content.length, 0)} characters
+                  <span className="text-slate-600">Email Length</span>
+                  <span className="font-medium text-slate-900">
+                    {composer.state.blocks.reduce((sum, b) => sum + b.content.length, 0)} chars
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Blocks</span>
-                  <span className="text-sm font-medium text-slate-900">{composer.state.blocks.length}/5</span>
+                  <span className="text-slate-600">Blocks</span>
+                  <span className="font-medium text-slate-900">{composer.state.blocks.length}/5</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Strategy</span>
-                  <span className="text-sm font-medium text-slate-900">
+                  <span className="text-slate-600">Strategy</span>
+                  <span className="font-medium text-slate-900 truncate">
                     {composer.state.selectedStrategy?.name || 'None'}
                   </span>
                 </div>
@@ -249,20 +249,20 @@ export function BlockBasedComposer({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
           <div className="flex gap-2">
             {!composer.hasCompleteEmail && (
-              <div className="flex items-center gap-2 text-sm text-amber-600">
-                <AlertCircle size={16} />
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-600">
+                <AlertCircle size={14} />
                 <span>Complete context and strategy to send</span>
               </div>
             )}
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2.5">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm"
+              className="px-3.5 py-2 text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 active:bg-slate-100 transition-colors font-medium text-sm"
             >
               Close
             </button>
@@ -270,18 +270,18 @@ export function BlockBasedComposer({
             <button
               onClick={handleSave}
               disabled={isSaving || composer.state.blocks.length === 0}
-              className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-3.5 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-md transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <Save size={16} />
+              <Save size={14} />
               Save Draft
             </button>
 
             <button
               onClick={handleSend}
               disabled={isSending || !composer.hasCompleteEmail || !canSend}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-md transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <Send size={16} />
+              <Send size={14} />
               Send Now
             </button>
           </div>

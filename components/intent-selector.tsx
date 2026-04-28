@@ -32,31 +32,31 @@ const INTENTS: Array<{ id: Intent; label: string; description: string; icon: Rea
 
 export function IntentSelector({ value, onChange, disabled = false }: IntentSelectorProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 mb-3">Email Intent</h3>
-        <p className="text-xs text-slate-500 mb-4">What's the purpose of this email?</p>
+        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1.5">Email Intent</h3>
+        <p className="text-xs text-slate-500">What's the purpose of this email?</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2.5">
         {INTENTS.map((intent) => (
           <button
             key={intent.id}
             onClick={() => onChange(intent.id)}
             disabled={disabled}
-            className={`p-3 rounded-lg border-2 transition-all text-left ${
+            className={`p-3 rounded-lg border-2 transition-all text-left hover:shadow-sm ${
               value === intent.id
-                ? 'border-indigo-600 bg-indigo-50'
+                ? 'border-indigo-500 bg-indigo-50 shadow-sm'
                 : 'border-slate-200 bg-white hover:border-slate-300'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}`}
           >
-            <div className={`flex items-center justify-center h-8 w-8 rounded-md mb-2 ${
-              value === intent.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
+            <div className={`flex items-center justify-center h-7 w-7 rounded-md mb-2 transition-all ${
+              value === intent.id ? 'bg-indigo-600 text-white scale-110' : 'bg-slate-100 text-slate-600'
             }`}>
               {intent.icon}
             </div>
             <h4 className="text-xs font-semibold text-slate-900">{intent.label}</h4>
-            <p className="text-xs text-slate-500 mt-1">{intent.description}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{intent.description}</p>
           </button>
         ))}
       </div>

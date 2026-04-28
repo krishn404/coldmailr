@@ -40,18 +40,18 @@ export function BlockEditor({ blocks, onBlockUpdate, onBlockRegenerate, onBlockS
   }, [expandedBlockId]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Email Preview Mode */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-6">
-        <div className="prose prose-sm max-w-none">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-3">
+        <div className="prose prose-sm prose-slate max-w-none text-slate-700">
           {blocks.map((block) => (
-            <div key={block.id} className="mb-4">
+            <div key={block.id} className="mb-3 text-sm leading-relaxed">
               {block.block_type === 'signature' ? (
-                <div className="text-sm text-slate-600 italic border-t border-slate-300 pt-4">
+                <div className="text-xs text-slate-500 italic border-t border-slate-200 pt-2 mt-2">
                   {block.content}
                 </div>
               ) : (
-                <div className="text-slate-900">{block.content}</div>
+                <div className="text-slate-800">{block.content}</div>
               )}
             </div>
           ))}
@@ -59,7 +59,7 @@ export function BlockEditor({ blocks, onBlockUpdate, onBlockRegenerate, onBlockS
       </div>
 
       {/* Editable Blocks */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {blocks.map((block) => (
           <BlockItem
             key={block.id}
@@ -82,9 +82,9 @@ export function BlockEditor({ blocks, onBlockUpdate, onBlockRegenerate, onBlockS
 
       {/* Add Block Option (only if < 6 blocks) */}
       {blocks.length < 6 && (
-        <button className="w-full py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-600 hover:border-slate-400 hover:text-slate-700 transition-colors flex items-center justify-center gap-2">
-          <Plus size={18} />
-          <span className="text-sm font-medium">Add Custom Block</span>
+        <button className="w-full py-2.5 border-2 border-dashed border-slate-300 rounded-md text-slate-600 hover:border-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 active:scale-98">
+          <Plus size={16} />
+          <span className="text-xs font-medium">Add Block</span>
         </button>
       )}
     </div>

@@ -12,10 +12,10 @@ interface StrategySelectorProps {
 
 export function StrategySelector({ strategies, selectedId, onSelect, isLoading = false }: StrategySelectorProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">Recommended Strategies</h3>
-        <p className="text-xs text-slate-500 mt-1">Based on your intent and context</p>
+        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Recommended Strategies</h3>
+        <p className="text-xs text-slate-500 mt-0.5">Based on your intent and context</p>
       </div>
 
       <div className="space-y-2">
@@ -25,8 +25,8 @@ export function StrategySelector({ strategies, selectedId, onSelect, isLoading =
       </div>
 
       {strategies.length === 0 && (
-        <div className="py-6 text-center">
-          <p className="text-sm text-slate-500">No strategies available for this intent</p>
+        <div className="py-4 text-center">
+          <p className="text-xs text-slate-500 font-medium">No strategies available for this intent</p>
         </div>
       )}
     </div>
@@ -47,25 +47,25 @@ function StrategyCard({ card, selected, onSelect, disabled }: StrategyCardProps)
     <button
       onClick={() => onSelect(strategy.id)}
       disabled={disabled}
-      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-        selected ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300'
+      className={`w-full p-3.5 rounded-lg border-2 transition-all text-left hover:shadow-sm active:scale-98 ${
+        selected ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-slate-900 text-sm">{strategy.name}</h4>
-          <p className="text-xs text-slate-600 mt-1">{strategy.description}</p>
+          <p className="text-xs text-slate-600 mt-0.5">{strategy.description}</p>
         </div>
-        {selected && <Check size={20} className="text-indigo-600 flex-shrink-0 ml-2" />}
+        {selected && <Check size={18} className="text-indigo-600 flex-shrink-0 ml-2 mt-0.5" />}
       </div>
 
-      <div className="flex items-center gap-3 mt-3">
+      <div className="flex items-center gap-3 mt-2.5 flex-wrap">
         {/* Match Score */}
-        <div className="flex items-center gap-2">
-          <div className="text-xs font-medium text-slate-600">{Math.round(matchScore * 100)}% match</div>
-          <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+        <div className="flex items-center gap-1.5">
+          <div className="text-xs font-medium text-slate-600">{Math.round(matchScore * 100)}%</div>
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-green-500 transition-all"
+              className={`h-full transition-all ${matchScore > 0.7 ? 'bg-emerald-500' : matchScore > 0.4 ? 'bg-amber-500' : 'bg-slate-300'}`}
               style={{ width: `${matchScore * 100}%` }}
             ></div>
           </div>
@@ -73,8 +73,8 @@ function StrategyCard({ card, selected, onSelect, disabled }: StrategyCardProps)
 
         {/* Variant Count */}
         <div className="flex items-center gap-1 text-slate-600">
-          <Zap size={14} className="text-amber-500" />
-          <span className="text-xs font-medium">{variants} variants</span>
+          <Zap size={13} className="text-amber-500" />
+          <span className="text-xs font-medium">{variants}</span>
         </div>
       </div>
     </button>

@@ -5,8 +5,9 @@ import { getOnboardingCompleteFlag } from '@/lib/onboarding/user-repo'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionCookie()
+  // Let /app render for signed-out users so the Gmail auth modal can open there.
   if (!session?.accessToken || !session.googleSub) {
-    redirect('/')
+    return children
   }
 
   const userId = deriveUserIdFromGoogleSub(session.googleSub)

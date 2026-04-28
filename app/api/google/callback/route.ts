@@ -7,6 +7,7 @@ import {
   getStateCookie,
   setSessionCookie,
 } from '@/lib/gmail-auth'
+import { getOnboardingCompleteFlag } from '@/lib/onboarding/user-repo'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
@@ -40,7 +41,12 @@ export async function GET(request: Request) {
     })
     await clearStateCookie()
 
-    return NextResponse.redirect(new URL('/?gmail=connected', url.origin))
+    const targetPath =
+      userId && (await getOnboardingCompleteFlag({ userId, email: profile.data.email ?? null }))
+        ? '/app'
+        : '/onboarding'
+
+    return NextResponse.redirect(new URL(targetPath, url.origin))
   } catch {
     return NextResponse.redirect(new URL('/?gmail=error', url.origin))
   }

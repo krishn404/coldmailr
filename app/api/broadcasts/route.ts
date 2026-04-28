@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireApiAuth } from '@/lib/api-auth'
+import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,8 @@ export async function GET(req: NextRequest) {
     const authResult = await requireApiAuth()
     if (!authResult.ok) return authResult.response
     const { userId } = authResult.auth
+    const onboarding = await requireOnboardingComplete(authResult.auth)
+    if (!onboarding.ok) return onboarding.response
 
     const { searchParams } = new URL(req.url)
 
@@ -57,6 +60,8 @@ export async function POST(req: NextRequest) {
     const authResult = await requireApiAuth()
     if (!authResult.ok) return authResult.response
     const { userId } = authResult.auth
+    const onboarding = await requireOnboardingComplete(authResult.auth)
+    if (!onboarding.ok) return onboarding.response
 
     const body = await req.json()
 

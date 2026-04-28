@@ -132,6 +132,52 @@ CREATE TABLE IF NOT EXISTS public.broadcast_send_recovery_jobs (
   status TEXT NOT NULL DEFAULT 'pending'
 );
 CREATE INDEX IF NOT EXISTS idx_broadcast_recovery_user_id ON public.broadcast_send_recovery_jobs(user_id);
+CREATE TABLE IF NOT EXISTS public.templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  context TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  use_case TEXT,
+  industry TEXT,
+  tone TEXT,
+  length_hint TEXT,
+  is_pinned BOOLEAN NOT NULL DEFAULT false,
+  source_broadcast_id UUID,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id_updated_at ON public.templates(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id_last_used_at ON public.templates(user_id, last_used_at DESC);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id_pinned ON public.templates(user_id, is_pinned);
+CREATE TABLE IF NOT EXISTS public.template_versions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  template_id UUID NOT NULL REFERENCES public.templates(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  context TEXT NOT NULL,
+  body TEXT NOT NULL,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_template_versions_template_id_created_at ON public.template_versions(template_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS public.template_ai_cache (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
+  cache_key TEXT NOT NULL,
+  context TEXT NOT NULL,
+  tone TEXT NOT NULL,
+  length_hint TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, cache_key)
+);
+CREATE INDEX IF NOT EXISTS idx_template_ai_cache_user_id_created_at ON public.template_ai_cache(user_id, created_at DESC);
 `
 
 export async function ensureBroadcastsSchema() {

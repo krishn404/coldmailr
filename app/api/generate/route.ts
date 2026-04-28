@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Groq from 'groq-sdk'
+import { requireApiAuth } from '@/lib/api-auth'
+import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
 export const runtime = 'nodejs'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
@@ -218,6 +220,11 @@ function modeFromOpportunityType(value?: GenerateRequest['opportunity_type']): G
 export async function POST(request: NextRequest) {
   let modeForLog: GenerateRequest['mode'] | 'unknown' = 'unknown'
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const onboarding = await requireOnboardingComplete(authResult.auth)
+    if (!onboarding.ok) return onboarding.response
+
     const body = (await request.json()) as GenerateRequest
     if (!body.to || !body.context) {
       return NextResponse.json({ error: 'Missing required fields: to, context' }, { status: 400 })

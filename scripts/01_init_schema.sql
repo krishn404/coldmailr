@@ -125,6 +125,55 @@ CREATE INDEX IF NOT EXISTS idx_broadcasts_user_id_created_at ON broadcasts(user_
 -- ==========================================
 -- AUTO updated_at (ALL TABLES)
 -- ==========================================
+CREATE TABLE IF NOT EXISTS templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  context TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  use_case TEXT,
+  industry TEXT,
+  tone TEXT,
+  length_hint TEXT,
+  is_pinned BOOLEAN NOT NULL DEFAULT false,
+  source_broadcast_id UUID,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id_updated_at ON templates(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id_last_used_at ON templates(user_id, last_used_at DESC);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id_pinned ON templates(user_id, is_pinned);
+
+CREATE TABLE IF NOT EXISTS template_versions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  template_id UUID NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  context TEXT NOT NULL,
+  body TEXT NOT NULL,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_template_versions_template_id_created_at ON template_versions(template_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS template_ai_cache (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
+  cache_key TEXT NOT NULL,
+  context TEXT NOT NULL,
+  tone TEXT NOT NULL,
+  length_hint TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (user_id, cache_key)
+);
+CREATE INDEX IF NOT EXISTS idx_template_ai_cache_user_id_created_at ON template_ai_cache(user_id, created_at DESC);
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -137,7 +186,7 @@ $$ LANGUAGE plpgsql;
 DO $$
 DECLARE t text;
 BEGIN
-  FOR t IN SELECT unnest(ARRAY['tenants','users','drafts','broadcasts','templates'])
+  FOR t IN SELECT unnest(ARRAY['tenants','users','drafts','broadcasts','templates','template_ai_cache'])
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trigger_%s_updated_at ON %s', t, t);
     EXECUTE format('CREATE TRIGGER trigger_%s_updated_at BEFORE UPDATE ON %s FOR EACH ROW EXECUTE FUNCTION set_updated_at()', t, t);
@@ -183,6 +232,9 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE drafts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE broadcasts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE template_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE template_ai_cache ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
@@ -194,6 +246,39 @@ BEGIN
       AND policyname = 'broadcasts_select_all'
   ) THEN
     DROP POLICY broadcasts_select_all ON broadcasts;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'templates' AND policyname = 'templates_user_select'
+  ) THEN
+    CREATE POLICY templates_user_select ON templates FOR SELECT USING (auth.uid()::text = user_id::text);
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'templates' AND policyname = 'templates_user_insert'
+  ) THEN
+    CREATE POLICY templates_user_insert ON templates FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'templates' AND policyname = 'templates_user_update'
+  ) THEN
+    CREATE POLICY templates_user_update ON templates FOR UPDATE USING (auth.uid()::text = user_id::text) WITH CHECK (auth.uid()::text = user_id::text);
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'templates' AND policyname = 'templates_user_delete'
+  ) THEN
+    CREATE POLICY templates_user_delete ON templates FOR DELETE USING (auth.uid()::text = user_id::text);
   END IF;
 END $$;
 

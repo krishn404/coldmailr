@@ -4,6 +4,7 @@ import { getAuthorizedClient, getSessionCookie } from '@/lib/gmail-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { fromDbStatus, toDbStatus } from '@/lib/broadcast-status'
 import { requireApiAuth } from '@/lib/api-auth'
+import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
 type SendBody = {
   to: string
@@ -61,6 +62,8 @@ export async function POST(request: Request) {
     const authResult = await requireApiAuth()
     if (!authResult.ok) return authResult.response
     const { userId } = authResult.auth
+    const onboarding = await requireOnboardingComplete(authResult.auth)
+    if (!onboarding.ok) return onboarding.response
 
     const payload = (await request.json()) as SendBody
     if (!payload.to || !payload.subject || !payload.body) {

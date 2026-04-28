@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Maximize2, Minimize2, ChevronDown, Sparkles, Bold, Italic, Underline, Link2 } from 'lucide-react'
+import { X, Maximize2, Minimize2, ChevronDown, Sparkles, Bold, Italic, Underline, Link2, Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { DeliverabilityScore } from '@/components/deliverability-score'
 import { ContactPreview } from '@/components/contact-preview'
 import { BroadcastRecord } from '@/components/broadcasts-types'
+import { TemplateRecord } from '@/components/templates-types'
 
 interface ColdEmailComposerProps {
   isOpen: boolean
@@ -14,6 +15,7 @@ interface ColdEmailComposerProps {
   fromEmail?: string | null
   canSend: boolean
   initialBroadcast?: BroadcastRecord | null
+  selectedTemplate?: TemplateRecord | null
   onSaved?: () => void
 }
 
@@ -28,9 +30,12 @@ export function ColdEmailComposer({
   fromEmail,
   canSend,
   initialBroadcast,
+  selectedTemplate,
   onSaved,
 }: ColdEmailComposerProps) {
   const [recipient, setRecipient] = useState('')
+  const [recipientInput, setRecipientInput] = useState('')
+  const [isRecipientEditing, setIsRecipientEditing] = useState(true)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [signature, setSignature] = useState(fromEmail || '')
@@ -44,6 +49,7 @@ export function ColdEmailComposer({
   const [contextNotes, setContextNotes] = useState('')
   const [variations, setVariations] = useState(1)
   const [broadcastId, setBroadcastId] = useState<string | null>(null)
+  const [templateTone, setTemplateTone] = useState('professional')
   const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -59,6 +65,8 @@ export function ColdEmailComposer({
     if (initialBroadcast) {
       setBroadcastId(initialBroadcast.id)
       setRecipient(initialBroadcast.toEmail || '')
+      setRecipientInput(initialBroadcast.toEmail || '')
+      setIsRecipientEditing(!(initialBroadcast.toEmail || '').trim())
       setSubject(initialBroadcast.subject === '(No subject)' ? '' : initialBroadcast.subject)
       setBody(initialBroadcast.body || '')
       setContextNotes(initialBroadcast.context || '')
@@ -67,12 +75,22 @@ export function ColdEmailComposer({
 
     setBroadcastId(null)
     setRecipient('')
+    setRecipientInput('')
+    setIsRecipientEditing(true)
     setSubject('')
     setBody('')
     setContextNotes('')
     setMode('cold')
     setVariations(1)
   }, [initialBroadcast, isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !selectedTemplate) return
+    setSubject(selectedTemplate.subject || '')
+    setBody(selectedTemplate.body || '')
+    setContextNotes(selectedTemplate.context || '')
+    setTemplateTone(selectedTemplate.tone || 'professional')
+  }, [selectedTemplate, isOpen])
 
   // Calculate deliverability metrics
   const linksCount = (body.match(/https?:\/\/\S+/g) || []).length
@@ -92,6 +110,11 @@ export function ColdEmailComposer({
 
     if (!recipient || !subject || !body) {
       toast.error('Please fill in all required fields')
+      return
+    }
+    const unresolvedTokens = `${subject}\n${body}`.match(/\{\{\s*[a-zA-Z0-9_]+\s*\}\}/g) ?? []
+    if (unresolvedTokens.length > 0) {
+      toast.error(`Replace personalization tokens before sending: ${[...new Set(unresolvedTokens)].join(', ')}`)
       return
     }
 
@@ -152,6 +175,17 @@ export function ColdEmailComposer({
     }
   }
 
+  const normalizeRecipient = (value: string) => value.trim().replace(/[,;]$/, '')
+
+  const commitRecipient = () => {
+    const normalized = normalizeRecipient(recipientInput)
+    setRecipient(normalized)
+    setRecipientInput(normalized)
+    if (normalized) setIsRecipientEditing(false)
+  }
+
+  const recipientInitial = (recipient || '?').trim().charAt(0).toUpperCase()
+
   const parseSubjectAndBody = (generated: string) => {
     const lines = generated.replace(/\r/g, '').split('\n')
     const firstLine = lines[0]?.trim() || ''
@@ -185,6 +219,7 @@ export function ColdEmailComposer({
           opportunity_type: mode === 'cold' ? 'career' : mode,
           goal: 'reply',
           variations,
+          constraints: `Use concrete recipient-ready wording. Do not use variable placeholders like {{firstName}} or {{Your Name}}. Keep tone ${templateTone}.`,
         }),
       })
 
@@ -299,6 +334,56 @@ export function ColdEmailComposer({
     toast.success('Draft saved')
   }
 
+  const handleSaveAsTemplate = async () => {
+    if (!subject.trim() || !body.trim()) {
+      toast.error('Add subject and body before saving template')
+      return
+    }
+    const fallbackContext = contextNotes.trim() || `Intent: outreach\nAudience: ${recipient || '{{recipient}}'}\nValue proposition: ${subject}`
+    const useCase = mode
+    const lengthHint = body.length < 500 ? 'short' : body.length < 900 ? 'medium' : 'long'
+
+    const response = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: subject,
+        subject,
+        context: fallbackContext,
+        body,
+        tone: templateTone,
+        useCase,
+        lengthHint,
+        tags: [mode, templateTone].filter(Boolean),
+        sourceBroadcastId: broadcastId,
+      }),
+    })
+    if (!response.ok) {
+      toast.error('Failed to save template')
+      return
+    }
+    toast.success('Saved to Template Gallery')
+  }
+
+  const handleInsertTemplateSection = () => {
+    if (!selectedTemplate?.body) {
+      toast.error('Open from Template Gallery to insert sections')
+      return
+    }
+    const sections = selectedTemplate.body.split(/\n\s*\n/).filter(Boolean)
+    if (!sections.length) return
+    const section = sections[0]
+    const textarea = bodyRef.current
+    if (!textarea) {
+      setBody((prev) => (prev ? `${prev}\n\n${section}` : section))
+      return
+    }
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const next = body.slice(0, start) + section + body.slice(end)
+    setBody(next)
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -344,13 +429,63 @@ export function ColdEmailComposer({
             <label className="text-xs font-medium text-[#666666] uppercase tracking-wider block mb-2">
               To
             </label>
-            <input
-              type="email"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder="recipient@company.com"
-              className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-white placeholder-[#666666] focus:border-[#3a3a3a] focus:outline-none transition-colors"
-            />
+            <div className="w-full min-h-[44px] bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-2 py-1.5 focus-within:border-[#3a3a3a] transition-colors flex items-center gap-2 flex-wrap">
+              <AnimatePresence initial={false}>
+                {!isRecipientEditing && recipient ? (
+                  <motion.button
+                    key="recipient-chip"
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    whileHover={{ scale: 1.01 }}
+                    onClick={() => setIsRecipientEditing(true)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#35517c] bg-[#111b2c] pl-1 pr-2 py-1 text-sm text-white"
+                    title="Click to edit recipient"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#5f8dff] to-[#7f5fff] text-[11px] font-semibold flex items-center justify-center">
+                      {recipientInitial}
+                    </span>
+                    <span>{recipient}</span>
+                    <span
+                      className="text-[#9fb6ff] hover:text-white"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setRecipient('')
+                        setRecipientInput('')
+                        setIsRecipientEditing(true)
+                      }}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </span>
+                  </motion.button>
+                ) : null}
+              </AnimatePresence>
+              {isRecipientEditing && (
+                <input
+                  type="email"
+                  value={recipientInput}
+                  onChange={(e) => setRecipientInput(e.target.value)}
+                  onBlur={commitRecipient}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
+                      e.preventDefault()
+                      commitRecipient()
+                    }
+                  }}
+                  placeholder="recipient@company.com"
+                  className="flex-1 min-w-[220px] bg-transparent px-2 py-1.5 text-white placeholder-[#666666] focus:outline-none"
+                />
+              )}
+              {!isRecipientEditing && recipient && (
+                <button
+                  onClick={() => setIsRecipientEditing(true)}
+                  className="p-1.5 rounded-full hover:bg-[#1a1a1a] text-[#8a8a8a] hover:text-white transition-colors"
+                  title="Add or edit recipient"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Subject Field */}
@@ -422,6 +557,19 @@ export function ColdEmailComposer({
                   <option value={1}>1</option>
                   <option value={2}>2</option>
                   <option value={3}>3</option>
+                </select>
+              </label>
+              <label className="text-xs text-[#666666]">
+                Tone:
+                <select
+                  value={templateTone}
+                  onChange={(e) => setTemplateTone(e.target.value)}
+                  className="ml-2 bg-[#0a0a0a] border border-[#2a2a2a] rounded px-2 py-1 text-[#999999]"
+                >
+                  <option value="professional">Professional</option>
+                  <option value="friendly">Friendly</option>
+                  <option value="confident">Confident</option>
+                  <option value="concise">Concise</option>
                 </select>
               </label>
               <button
@@ -532,6 +680,18 @@ export function ColdEmailComposer({
 
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#2a2a2a] bg-[#0a0a0a] rounded-b-lg">
+          <button
+            onClick={handleInsertTemplateSection}
+            className="px-4 py-2 text-sm font-medium text-[#999999] bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#2a2a2a] transition-colors"
+          >
+            Insert Section
+          </button>
+          <button
+            onClick={handleSaveAsTemplate}
+            className="px-4 py-2 text-sm font-medium text-[#999999] bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#2a2a2a] transition-colors"
+          >
+            Save as Template
+          </button>
           <button
             onClick={handleSaveDraft}
             className="px-4 py-2 text-sm font-medium text-[#999999] bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#2a2a2a] transition-colors"

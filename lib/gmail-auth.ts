@@ -23,7 +23,35 @@ const GMAIL_SCOPES = [
 ]
 
 export function deriveUserIdFromGoogleSub(googleSub: string): string {
-  return googleSub
+  // Deterministic UUID so Supabase "users" table can use UUID PK while keeping Google OAuth as identity provider.
+  // Must match DB function: public.google_sub_to_uuid(sub TEXT) (uuid v5, namespace URL, name "google:<sub>").
+  // We implement v5 here to avoid extra roundtrips in middleware/API.
+  const namespaceUrl = '6ba7b811-9dad-11d1-80b4-00c04fd430c8' // uuid_ns_url()
+  return uuidv5(`google:${googleSub}`, namespaceUrl)
+}
+
+function uuidv5(name: string, namespace: string): string {
+  const crypto = require('crypto') as typeof import('crypto')
+  const nsBytes = parseUuid(namespace)
+  const nameBytes = Buffer.from(name, 'utf8')
+  const hash = crypto.createHash('sha1').update(Buffer.concat([nsBytes, nameBytes])).digest()
+  hash[6] = (hash[6] & 0x0f) | 0x50 // version 5
+  hash[8] = (hash[8] & 0x3f) | 0x80 // variant RFC 4122
+  const b = hash.subarray(0, 16)
+  return formatUuid(b)
+}
+
+function parseUuid(uuid: string): Buffer {
+  const hex = uuid.replace(/-/g, '').toLowerCase()
+  if (!/^[0-9a-f]{32}$/.test(hex)) {
+    throw new Error('Invalid UUID namespace')
+  }
+  return Buffer.from(hex, 'hex')
+}
+
+function formatUuid(bytes: Buffer): string {
+  const hex = bytes.toString('hex')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
 function getOAuthConfig(redirectUri: string) {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
+import { requireApiAuth } from '@/lib/api-auth'
+import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
 export const runtime = 'nodejs';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
@@ -90,6 +92,11 @@ function resolveSystemPrompt(action: string): string {
 export async function POST(request: NextRequest) {
   let actionForLog = 'unknown';
   try {
+    const authResult = await requireApiAuth()
+    if (!authResult.ok) return authResult.response
+    const onboarding = await requireOnboardingComplete(authResult.auth)
+    if (!onboarding.ok) return onboarding.response
+
     const data = (await request.json()) as ActionRequest;
     const action = normalizeAction(data.action);
     actionForLog = action;

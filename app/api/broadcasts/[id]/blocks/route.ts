@@ -5,15 +5,6 @@ import { EmailBlock, BlockType } from '@/lib/types/block-system';
 
 export const runtime = 'nodejs';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase configuration');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 interface SaveBlocksRequest {
   blocks: Omit<EmailBlock, 'id' | 'broadcast_id' | 'created_at' | 'updated_at'>[];
   body_structure?: Record<string, any>;
@@ -34,6 +25,14 @@ export async function GET(
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
 
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const broadcastId = params.id;
 
     // Verify ownership
@@ -85,6 +84,14 @@ export async function POST(
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
 
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const broadcastId = params.id;
     const body = (await request.json()) as SaveBlocksRequest;
 

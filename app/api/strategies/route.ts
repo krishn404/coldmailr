@@ -5,15 +5,6 @@ import { Intent, Strategy, StrategyCard, EmailContext } from '@/lib/types/block-
 
 export const runtime = 'nodejs';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase configuration');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 interface FetchStrategiesRequest {
   intent: Intent;
   context?: Partial<EmailContext>;
@@ -60,6 +51,15 @@ function calculateMatchScore(strategy: Strategy, context?: Partial<EmailContext>
 
 async function getStrategiesForIntent(intent: Intent, userId: string): Promise<Strategy[]> {
   try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('[strategies] Missing Supabase configuration');
+      return [];
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data, error } = await supabase
       .from('strategies')
       .select('*')

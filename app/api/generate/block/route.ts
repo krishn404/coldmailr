@@ -6,13 +6,6 @@ import { BlockType, EmailContext } from '@/lib/types/block-system';
 export const runtime = 'nodejs';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const groqApiKey = process.env.GROQ_API_KEY;
-
-if (!groqApiKey || groqApiKey.trim().length === 0) {
-  throw new Error('Missing GROQ_API_KEY');
-}
-
-const groq = new Groq({ apiKey: groqApiKey });
 
 interface GenerateBlockRequest {
   block_type: BlockType;
@@ -77,6 +70,13 @@ async function generateBlockContent(
   context: Partial<EmailContext>,
   tone?: string,
 ): Promise<string> {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey || groqApiKey.trim().length === 0) {
+    console.error('[generate/block] Missing GROQ_API_KEY');
+    return '';
+  }
+
+  const groq = new Groq({ apiKey: groqApiKey });
   const completion = await groq.chat.completions.create({
     model: GROQ_MODEL,
     temperature: 0.7,
@@ -97,6 +97,13 @@ async function generateBlockVariants(
   tone?: string,
   count: number = 2,
 ): Promise<string[]> {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey || groqApiKey.trim().length === 0) {
+    console.error('[generate/block variants] Missing GROQ_API_KEY');
+    return [];
+  }
+
+  const groq = new Groq({ apiKey: groqApiKey });
   const variants: string[] = [];
 
   for (let i = 0; i < count; i++) {

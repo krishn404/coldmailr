@@ -5,15 +5,6 @@ import { EmailContext } from '@/lib/types/block-system';
 
 export const runtime = 'nodejs';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase configuration');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 interface SaveContextRequest {
   broadcast_id?: string;
   recipient_name?: string;
@@ -37,6 +28,14 @@ export async function GET(request: NextRequest) {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
 
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const searchParams = request.nextUrl.searchParams;
     const broadcastId = searchParams.get('broadcast_id');
 
@@ -90,6 +89,14 @@ export async function POST(request: NextRequest) {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
 
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const body = (await request.json()) as SaveContextRequest;
 
     if (!body.broadcast_id) {

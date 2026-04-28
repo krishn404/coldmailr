@@ -6,13 +6,6 @@ import { EmailContext } from '@/lib/types/block-system';
 export const runtime = 'nodejs';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const groqApiKey = process.env.GROQ_API_KEY;
-
-if (!groqApiKey || groqApiKey.trim().length === 0) {
-  throw new Error('Missing GROQ_API_KEY');
-}
-
-const groq = new Groq({ apiKey: groqApiKey });
 
 interface AnalyzeContextRequest {
   recipient_name?: string;
@@ -50,6 +43,13 @@ function calculatePersonalizationStrength(context: Partial<EmailContext>): numbe
 }
 
 async function generateContextSuggestions(context: Partial<EmailContext>): Promise<string[]> {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey || groqApiKey.trim().length === 0) {
+    console.error('[context suggestions] Missing GROQ_API_KEY');
+    return [];
+  }
+
+  const groq = new Groq({ apiKey: groqApiKey });
   const prompt = `Based on the following recipient and company information, generate 2-3 specific, personalized context points that could be used in a cold email to make it more relevant and compelling.
 
 Recipient: ${context.recipient_name || 'Unknown'}

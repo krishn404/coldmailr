@@ -5,10 +5,18 @@ import { createClient } from '@supabase/supabase-js'
 import { requireApiAuth } from '@/lib/api-auth'
 import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Initialize Supabase client safely - only throw at runtime if accessed without config
+const getSupabase = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    console.error('[broadcasts] Missing Supabase configuration')
+    return null
+  }
+
+  return createClient(url, key)
+}
 
 // GET: list broadcasts with filters
 export async function GET(req: NextRequest) {
@@ -19,6 +27,11 @@ export async function GET(req: NextRequest) {
     const onboarding = await requireOnboardingComplete(authResult.auth)
     if (!onboarding.ok) return onboarding.response
 
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     const { searchParams } = new URL(req.url)
 
     const search = searchParams.get('search') || ''
@@ -27,7 +40,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('broadcasts')
       .select(
-        'id, subject, status, content, context, message_id, audience_count, sent_count, failed_count, created_at, updated_at, sent_at, to_email, from_email, body',
+        'id, subject, status, content, context, message_id, audience_count, sent_count, failed_count, created_at, updated_at, sent_at, to_email, from_email, body, body_structure, strategy_id, context_id, intent',
       )
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -63,19 +76,29 @@ export async function POST(req: NextRequest) {
     const onboarding = await requireOnboardingComplete(authResult.auth)
     if (!onboarding.ok) return onboarding.response
 
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     const body = await req.json()
 
-    const {
-      from_email,
-      fromEmail,
-      to_email,
-      toEmail,
-      subject,
-      body: emailBody,
-      content,
-      context,
-      status,
-    } = body
+  const {
+    from_email,
+    fromEmail,
+    to_email,
+    toEmail,
+    subject,
+    body: emailBody,
+    content,
+    context,
+    status,
+    body_structure,
+    strategy_id,
+    context_id,
+    intent,
+    sent_at,
+  } = body
 
     const resolvedBody = content ?? emailBody ?? ''
     const resolvedContext = context ?? ''
@@ -92,6 +115,11 @@ export async function POST(req: NextRequest) {
           content: resolvedBody,
           context: resolvedContext,
           status: status ?? 'draft',
+          body_structure: body_structure || null,
+          strategy_id: strategy_id || null,
+          context_id: context_id || null,
+          intent: intent || null,
+          sent_at: sent_at || null,
           updated_at: new Date().toISOString(),
         },
       ])

@@ -5,10 +5,18 @@ import { createClient } from '@supabase/supabase-js'
 import { requireApiAuth } from '@/lib/api-auth'
 import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Initialize Supabase client safely - only throw at runtime if accessed without config
+const getSupabase = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    console.error('[broadcasts/[id]] Missing Supabase configuration')
+    return null
+  }
+
+  return createClient(url, key)
+}
 
 // GET: single broadcast
 export async function GET(
@@ -23,6 +31,11 @@ export async function GET(
     if (!onboarding.ok) return onboarding.response
 
     const { id } = await params
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     const { data, error } = await supabase
       .from('broadcasts')
       .select(`
@@ -73,6 +86,11 @@ export async function PUT(
     const { id } = await params
     const body = await req.json()
 
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     const {
       status,
       subject,
@@ -121,7 +139,7 @@ export async function PUT(
       updates.sent_at = new Date().toISOString()
     }
 
-    let { data, error } = await supabase
+    let { data, error } = await supabase!
       .from('broadcasts')
       .update(updates)
       .eq('id', id)
@@ -133,7 +151,7 @@ export async function PUT(
     if (error && error.code === '42703') {
       delete updates.sent_at
 
-      const retry = await supabase
+      const retry = await supabase!
         .from('broadcasts')
         .update(updates)
         .eq('id', id)
@@ -174,6 +192,11 @@ export async function DELETE(
     if (!onboarding.ok) return onboarding.response
 
     const { id } = await params
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     const { error } = await supabase
       .from('broadcasts')
       .delete()

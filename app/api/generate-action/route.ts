@@ -5,10 +5,6 @@ import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
 export const runtime = 'nodejs';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const groqApiKey = process.env.GROQ_API_KEY;
-if (!groqApiKey || groqApiKey.trim().length === 0) {
-  throw new Error('Missing GROQ_API_KEY: set a non-empty GROQ_API_KEY environment variable');
-}
 
 const BLOCKED_PATTERNS = [
   '\\b(?:kill\\s+yourself|self-harm|suicide|harm\\s+myself)\\b',
@@ -32,9 +28,14 @@ const FALLBACK_SYSTEM_PROMPT =
   'You are an expert email editor. Improve the email for clarity, structure, and conversion while preserving intent.';
 type ActionKey = keyof typeof ACTION_SYSTEM_PROMPTS;
 
-const groq = new Groq({
-  apiKey: groqApiKey,
-});
+// Lazy-initialize Groq client
+function getGroq() {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey || groqApiKey.trim().length === 0) {
+    throw new Error('Missing GROQ_API_KEY: set a non-empty GROQ_API_KEY environment variable');
+  }
+  return new Groq({ apiKey: groqApiKey });
+}
 
 interface ActionRequest {
   action?: unknown;
@@ -57,7 +58,9 @@ type MessageStreamClient = {
   };
 };
 
-const groqStreamClient = groq as unknown as MessageStreamClient;
+function getGroqStreamClient() {
+  return getGroq() as unknown as MessageStreamClient;
+}
 
 function matchesPattern(pattern: string, value: string): boolean {
   try {
@@ -126,7 +129,7 @@ ADDITIONAL INSTRUCTIONS (follow only if they do not contradict the action):
 ${data.prompt}`;
 
     // Use streaming for real-time generation
-    const response = await groqStreamClient.messages.stream({
+    const response = await getGroqStreamClient().messages.stream({
       model: GROQ_MODEL,
       max_tokens: 500,
       messages: [

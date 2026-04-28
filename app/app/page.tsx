@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { BroadcastsSidebar } from '@/components/broadcasts-sidebar'
 import { BroadcastsDashboard } from '@/components/broadcasts-dashboard'
-import { ColdEmailComposer } from '@/components/cold-email-composer'
+import { BlockBasedComposer } from '@/components/block-based-composer'
 import { GmailInbox } from '@/components/gmail-inbox'
 import { GmailAuthModal } from '@/components/gmail-auth-modal'
 import { ProfileProvider } from '@/components/profile-provider'
@@ -132,7 +132,7 @@ export default function AppPage() {
             />
           )}
         </main>
-        <ColdEmailComposer
+        <BlockBasedComposer
           isOpen={isComposeOpen}
           onClose={() => {
             setIsComposeOpen(false)

@@ -5,10 +5,6 @@ import { requireOnboardingComplete } from '@/lib/onboarding/require-onboarding'
 
 export const runtime = 'nodejs'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
-const groqApiKey = process.env.GROQ_API_KEY
-if (!groqApiKey || groqApiKey.trim().length === 0) {
-  throw new Error('Missing GROQ_API_KEY: set a non-empty GROQ_API_KEY environment variable')
-}
 
 const BLOCKED_PATTERNS = [
   '\\b(?:kill\\s+yourself|self-harm|suicide|harm\\s+myself)\\b',
@@ -16,9 +12,14 @@ const BLOCKED_PATTERNS = [
   '\\b(?:credit\\s+card\\s+fraud|steal\\s+credentials|phishing\\s+kit)\\b',
 ] as const
 
-const groq = new Groq({
-  apiKey: groqApiKey,
-})
+// Lazy-initialize Groq client
+function getGroq() {
+  const groqApiKey = process.env.GROQ_API_KEY
+  if (!groqApiKey || groqApiKey.trim().length === 0) {
+    throw new Error('Missing GROQ_API_KEY: set a non-empty GROQ_API_KEY environment variable')
+  }
+  return new Groq({ apiKey: groqApiKey })
+}
 
 interface GenerateRequest {
   to: string
@@ -141,7 +142,7 @@ async function generateDraft(req: GenerateRequest): Promise<string> {
   let bestWordCount = 0
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const completion = await groq.chat.completions.create({
+    const completion = await getGroq().chat.completions.create({
       model: GROQ_MODEL,
       temperature: attempt === 0 ? 0.7 : 0.6,
       top_p: 0.9,

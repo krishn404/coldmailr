@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { requireApiAuth } from '@/lib/api-auth';
 import { Intent, Strategy, StrategyCard, EmailContext } from '@/lib/types/block-system';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -51,15 +51,11 @@ function calculateMatchScore(strategy: Strategy, context?: Partial<EmailContext>
 
 async function getStrategiesForIntent(intent: Intent, userId: string): Promise<Strategy[]> {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       console.error('[strategies] Missing Supabase configuration');
       return [];
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data, error } = await supabase
       .from('strategies')
       .select('*')
@@ -92,7 +88,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing intent' }, { status: 400 });
     }
 
-    const strategies = await getStrategiesForIntent(body.intent, authResult.auth);
+    const strategies = await getStrategiesForIntent(body.intent, authResult.auth.userId);
 
     const strategyCards: StrategyCard[] = strategies
       .slice(0, 3) // Top 3 strategies
@@ -126,7 +122,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing intent parameter' }, { status: 400 });
     }
 
-    const strategies = await getStrategiesForIntent(intent, authResult.auth);
+    const strategies = await getStrategiesForIntent(intent, authResult.auth.userId);
 
     return NextResponse.json({
       intent,

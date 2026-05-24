@@ -1,14 +1,19 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BroadcastsTable } from '@/components/broadcasts-table'
 import type { BroadcastRecord } from '@/components/broadcasts-types'
 import type { BroadcastStatus } from '@/lib/broadcast-status'
 
 export function DashboardMockup() {
+  const [mounted, setMounted] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const broadcasts = useMemo<BroadcastRecord[]>(
     () => [
@@ -65,6 +70,14 @@ export function DashboardMockup() {
   }
 
   const noop = async () => {}
+
+  if (!mounted) {
+    return (
+      <section className="px-6 py-8 md:px-10 md:py-12" aria-hidden>
+        <div className="mx-auto h-[520px] max-w-6xl animate-pulse rounded-2xl border border-[#222] bg-[#111111]" />
+      </section>
+    )
+  }
 
   return (
     <section className="px-6 py-8 md:px-10 md:py-12">

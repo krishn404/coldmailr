@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { requireApiAuth } from '@/lib/api-auth';
-import { EmailBlock, BlockType } from '@/lib/types/block-system';
+import { EmailBlock } from '@/lib/types/block-system';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -19,21 +19,16 @@ interface SaveBlocksRequest {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const broadcastId = params.id;
+    const { id: broadcastId } = await params;
 
     // Verify ownership
     const { data: broadcast, error: broadcastError } = await supabase
@@ -42,7 +37,7 @@ export async function GET(
       .eq('id', broadcastId)
       .single();
 
-    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth) {
+    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth.userId) {
       return NextResponse.json(
         { error: 'Broadcast not found or unauthorized' },
         { status: 404 },
@@ -78,21 +73,16 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const broadcastId = params.id;
+    const { id: broadcastId } = await params;
     const body = (await request.json()) as SaveBlocksRequest;
 
     // Verify ownership
@@ -102,7 +92,7 @@ export async function POST(
       .eq('id', broadcastId)
       .single();
 
-    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth) {
+    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth.userId) {
       return NextResponse.json(
         { error: 'Broadcast not found or unauthorized' },
         { status: 404 },

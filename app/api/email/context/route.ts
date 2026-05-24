@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { requireApiAuth } from '@/lib/api-auth';
-import { EmailContext } from '@/lib/types/block-system';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -28,14 +27,10 @@ export async function GET(request: NextRequest) {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const searchParams = request.nextUrl.searchParams;
     const broadcastId = searchParams.get('broadcast_id');
 
@@ -50,7 +45,7 @@ export async function GET(request: NextRequest) {
       .eq('id', broadcastId)
       .single();
 
-    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth) {
+    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth.userId) {
       return NextResponse.json(
         { error: 'Broadcast not found or unauthorized' },
         { status: 404 },
@@ -89,14 +84,10 @@ export async function POST(request: NextRequest) {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const body = (await request.json()) as SaveContextRequest;
 
     if (!body.broadcast_id) {
@@ -110,7 +101,7 @@ export async function POST(request: NextRequest) {
       .eq('id', body.broadcast_id)
       .single();
 
-    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth) {
+    if (broadcastError || !broadcast || broadcast.user_id !== authResult.auth.userId) {
       return NextResponse.json(
         { error: 'Broadcast not found or unauthorized' },
         { status: 404 },
@@ -125,7 +116,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     const contextPayload = {
-      user_id: authResult.auth,
+      user_id: authResult.auth.userId,
       broadcast_id: body.broadcast_id,
       recipient_name: body.recipient_name || null,
       recipient_email: body.recipient_email || null,

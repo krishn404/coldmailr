@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=18.18.0 <21"
+    "node": "20.x"
   },
   "scripts": {
     "preinstall": "node -e \"require('fs').existsSync('pnpm-lock.yaml')||process.exit(1)\"",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { requireApiAuth } from '@/lib/api-auth';
-import { Intent, Strategy } from '@/lib/types/block-system';
+import { Intent } from '@/lib/types/block-system';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -37,15 +37,10 @@ export async function POST(request: NextRequest) {
   try {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const body = (await request.json()) as CreateStrategyRequest;
 
     if (!body.intent || !body.name) {
@@ -59,7 +54,7 @@ export async function POST(request: NextRequest) {
       .from('strategies')
       .insert([
         {
-          user_id: authResult.auth,
+          user_id: authResult.auth.userId,
           intent: body.intent,
           name: body.name,
           description: body.description || null,
@@ -102,15 +97,10 @@ export async function PUT(request: NextRequest) {
   try {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const body = (await request.json()) as UpdateStrategyRequest;
 
     if (!body.id) {
@@ -128,7 +118,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Strategy not found' }, { status: 404 });
     }
 
-    if (strategy.user_id !== authResult.auth || strategy.is_system) {
+    if (strategy.user_id !== authResult.auth.userId || strategy.is_system) {
       return NextResponse.json(
         { error: 'Cannot modify system strategies or strategies from other users' },
         { status: 403 },
@@ -181,6 +171,10 @@ export async function DELETE(request: NextRequest) {
   try {
     const authResult = await requireApiAuth();
     if (!authResult.ok) return authResult.response;
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const strategyId = searchParams.get('id');
@@ -200,7 +194,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Strategy not found' }, { status: 404 });
     }
 
-    if (strategy.user_id !== authResult.auth || strategy.is_system) {
+    if (strategy.user_id !== authResult.auth.userId || strategy.is_system) {
       return NextResponse.json(
         { error: 'Cannot delete system strategies or strategies from other users' },
         { status: 403 },
